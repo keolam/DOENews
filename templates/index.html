@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MP3 Playlist Player</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            max-width: 400px;
+        }
+        li {
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+        }
+        li:hover {
+            background: #f0f0f0;
+        }
+        li.active {
+            background: #d0e6ff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>MP3 Playlist</h1>
+
+<audio id="audioPlayer" controls preload="metadata">
+    Your browser does not support the audio element.
+</audio>
+
+<ul id="playlist">
+    {% for file in files %}
+        <li data-src="{{ url_for('serve_mp3', filename=file) }}">
+            {{ file }}
+        </li>
+    {% endfor %}
+</ul>
+
+<script>
+    const audio = document.getElementById("audioPlayer");
+    const playlist = document.getElementById("playlist");
+    const tracks = playlist.getElementsByTagName("li");
+
+    let currentTrack = 0;
+
+    function playTrack(index) {
+        if (index < 0 || index >= tracks.length) return;
+
+        // Remove active class
+        for (let t of tracks) {
+            t.classList.remove("active");
+        }
+
+        const track = tracks[index];
+        audio.src = track.dataset.src;
+        audio.play();
+
+        track.classList.add("active");
+        currentTrack = index;
+    }
+
+    // Click to play
+    for (let i = 0; i < tracks.length; i++) {
+        tracks[i].addEventListener("click", () => playTrack(i));
+    }
+
+    // Auto-play next track
+    audio.addEventListener("ended", () => {
+        let next = currentTrack + 1;
+        if (next < tracks.length) {
+            playTrack(next);
+        }
+    });
+
+    // Auto-load first track (optional)
+    if (tracks.length > 0) {
+        playTrack(0);
+    }
+</script>
+
+</body>
+</html>
