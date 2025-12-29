@@ -8,10 +8,12 @@ MP3_FOLDER = os.path.join(app.root_path, "static", "mp3")
 @app.route("/")
 def index():
     # List mp3 files in the folder
-    files = [
-        f for f in os.listdir(MP3_FOLDER)
-        if f.lower().endswith(".mp3")
-    ]
+    files = []
+    if os.path.isdir(MP3_FOLDER):
+        files = [
+            f for f in os.listdir(MP3_FOLDER)
+            if f.lower().endswith(".mp3")
+        ]
     return render_template("index.html", files=files)
 
 @app.route("/mp3/<filename>")
