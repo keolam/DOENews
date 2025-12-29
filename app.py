@@ -17,6 +17,3 @@ def index():
 @app.route("/mp3/<filename>")
 def serve_mp3(filename):
     return send_from_directory(MP3_FOLDER, filename)
-
-if __name__ == "__main__":
-    app.run(debug=True)
