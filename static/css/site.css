@@ -1,0 +1,99 @@
+
+
+
+  :root{
+    --navy: #162E51;    /* :contentReference[oaicite:6]{index=6} */
+    --blue: #2378C3;    /* :contentReference[oaicite:7]{index=7} */
+    --blue-dark: #1A4480; /* :contentReference[oaicite:8]{index=8} */
+    --gold: #FFBE2E;    /* :contentReference[oaicite:9]{index=9} */
+    --bg: #F5F7FA;
+    --text: #0B1F33;
+    --muted: #4A5568;
+    --border: rgba(10, 25, 41, 0.12);
+    --card-bg: #FFFFFF;
+    --shadow: 0 8px 24px rgba(10, 25, 41, 0.12);
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Figtree", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color: var(--text);
+    background: radial-gradient(1200px 600px at 20% -10%, rgba(35,120,195,0.18), transparent 55%),
+                radial-gradient(900px 500px at 100% 0%, rgba(255,190,46,0.18), transparent 50%),
+                var(--bg);
+  }
+
+  .topbar {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 0;
+    border-bottom: 4px solid var(--gold);
+  }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 18px;
+  }
+  .topbar h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  .topbar p { margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.85); }
+
+  main { padding: 22px 0 34px; }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+  }
+
+  label { font-weight: 700; color: var(--navy); }
+  .field { margin: 12px 0; }
+
+  input[type="text"], input[type="number"], input[type="file"]{
+    width: 100%;
+    padding: 12px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(22,46,81,0.18);
+    outline: none;
+    font-family: inherit;
+    font-size: 14px;
+    background: #fff;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, input[type="file"]:focus{
+    border-color: rgba(35,120,195,0.55);
+    box-shadow: 0 0 0 4px rgba(35,120,195,0.12);
+  }
+
+  .btn {
+    width: 100%;
+    border: 1px solid rgba(26, 68, 128, 0.25);
+    background: var(--blue);
+    color: #fff;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 120ms ease, background 120ms ease;
+  }
+  .btn:hover { background: var(--blue-dark); }
+  .btn:active { transform: translateY(1px); }
+
+  .note {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  code {
+    background: rgba(22,46,81,0.06);
+    padding: 2px 6px;
+    border-radius: 8px;
+  }
+
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+

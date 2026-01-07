@@ -1,0 +1,173 @@
+<!--!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MP3 Playlist Player</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            max-width: 400px;
+        }
+        li {
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+        }
+        li:hover {
+            background: #f0f0f0;
+        }
+        li.active {
+            background: #d0e6ff;
+            font-weight: bold;
+        }
+        li { cursor:pointer; padding:8px; border-bottom:1px solid #ddd; }
+        li.active { font-weight:bold; background:#d0e6ff; }
+    </style>
+</head-->
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Audio Carousel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .title { font-size: 18px; font-weight: 700; margin: 0; }
+    .meta { color: #666; font-size: 13px; margin-top: 6px; }
+    .controls { display: flex; gap: 10px; margin-top: 14px; }
+    button {
+      border: 1px solid #ccc;
+      background: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:hover:not(:disabled) { background: #f4f4f4; }
+    audio { width: 100%; margin-top: 14px; }
+    .dots { display: flex; gap: 6px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #d0d0d0; cursor: pointer;
+    }
+    .dot.active { background: #555; }
+    .empty { color: #666; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Audio Library</h1>
+
+    {% if tracks and tracks|length > 0 %}
+      <!-- Embed track data safely as JSON -->
+      {{ tracks|tojson|safe }}
+      <script id="trackData" type="application/json">{{ tracks|tojson }}</script>
+
+      <div class="card">
+        <div class="row">
+          <div>
+            <p class="title" id="trackTitle">—</p>
+            <div class="meta" id="trackMeta">—</div>
+          </div>
+          <div class="controls">
+            <button id="prevBtn" type="button">◀ Prev</button>
+            <button id="nextBtn" type="button">Next ▶</button>
+          </div>
+        </div>
+
+        <audio id="player" controls preload="metadata">
+          Your browser does not support the audio element.
+        </audio>
+
+        <div class="dots" id="dots"></div>
+      </div>
+
+      <script>
+        const tracks = JSON.parse(document.getElementById("trackData").textContent);
+
+        const player = document.getElementById("player");
+        const titleEl = document.getElementById("trackTitle");
+        const metaEl  = document.getElementById("trackMeta");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
+        const dotsEl  = document.getElementById("dots");
+
+        let index = 0;
+
+        function mp3Url(filename) {
+          // Your Flask route is /mp3/<filename>
+          return `/mp3/${encodeURIComponent(filename)}`;
+        }
+
+        function renderDots() {
+          dotsEl.innerHTML = "";
+          tracks.forEach((_, i) => {
+            const dot = document.createElement("div");
+            dot.className = "dot" + (i === index ? " active" : "");
+            dot.title = `Track ${i + 1}`;
+            dot.addEventListener("click", () => loadTrack(i, true));
+            dotsEl.appendChild(dot);
+          });
+        }
+
+        function updateButtons() {
+          prevBtn.disabled = (tracks.length <= 1);
+          nextBtn.disabled = (tracks.length <= 1);
+        }
+
+        function loadTrack(i, autoplay = false) {
+          if (!tracks.length) return;
+          if (i < 0) i = tracks.length - 1;
+          if (i >= tracks.length) i = 0;
+          index = i;
+
+          const t = tracks[index];
+          titleEl.textContent = t.title || t.filename || `Track ${index + 1}`;
+          metaEl.textContent = `${index + 1} / ${tracks.length}`;
+
+          const wasPlaying = !player.paused && !player.ended;
+          player.src = mp3Url(t.filename);
+          player.load();
+
+          renderDots();
+
+          if (autoplay || wasPlaying) {
+            player.play().catch(() => {});
+          }
+        }
+
+        prevBtn.addEventListener("click", () => loadTrack(index - 1, true));
+        nextBtn.addEventListener("click", () => loadTrack(index + 1, true));
+
+        // Keyboard support: left/right arrows
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowLeft") loadTrack(index - 1, true);
+          if (e.key === "ArrowRight") loadTrack(index + 1, true);
+        });
+
+        // Auto-advance when a track ends
+        player.addEventListener("ended", () => loadTrack(index + 1, true));
+
+        updateButtons();
+        loadTrack(0, false);
+      </script>
+    {% else %}
+      <p class="empty">No MP3 files found.</p>
+    {% endif %}
+  </div>
+</body>
+</html>
