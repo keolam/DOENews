@@ -1,41 +1,3 @@
-<!--doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Admin Upload</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
-
-</head>
-<body>
-  <h1>Admin: Upload PDF → Generate MP3</h1>
-
-  <form method="POST" enctype="multipart/form-data">
-    
-    <div>
-      <label>MP3 filename (no .mp3)</label><br />
-      <input name="mp3_name" type="text" style="width: 360px;" placeholder="e.g. Month_DD_2026" required />
-    </div>
-    <br />
-    <div>
-      <label>Max characters to convert (optional)</label><br />
-      <input name="max_chars" type="number" min="500" step="500" value="4000" />
-    </div>
-    <br />
-    <br />
-    <div>
-      <input name="pdf" type="file" accept="application/pdf" required />
-    </div>
-    <br />
-    <button type="submit">Upload & Generate</button>
-  </form>
-
-  <p>Tip: access admin with <code>/admin?token=YOUR_ADMIN_TOKEN</code></p>
-</body>
-</html-->
-
 <!doctype html>
 <html>
 <head>
@@ -47,197 +9,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    :root{
-      --navy:#162E51;
-      --blue:#2378C3;
-      --blue-dark:#1A4480;
-      --gold:#FFBE2E;
-      --bg:#F5F7FA;
-      --text:#0B1F33;
-      --muted:#4A5568;
-      --border: rgba(10, 25, 41, 0.12);
-      --card:#fff;
-      --shadow: 0 10px 28px rgba(10, 25, 41, 0.14);
-      --radius:16px;
-    }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0;
-      font-family:"Figtree",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(1200px 600px at 20% -10%, rgba(35,120,195,0.18), transparent 55%),
-        radial-gradient(900px 500px at 100% 0%, rgba(255,190,46,0.18), transparent 50%),
-        var(--bg);
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-    }
-    .topbar{
-      background:var(--navy);
-      color:#fff;
-      padding:14px 0;
-      border-bottom:4px solid var(--gold);
-    }
-    .topbar .container{
-      max-width: 980px; margin:0 auto; padding:0 18px;
-    }
-    .topbar h1{ margin:0; font-size:20px; font-weight:700; }
-    .topbar p{ margin:4px 0 0; font-size:13px; color:rgba(255,255,255,0.85); }
-
-    main{
-      flex:1;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:22px 18px 34px;
-    }
-
-    .layout{
-      width: min(980px, 100%);
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:16px;
-      align-items:start;
-    }
-
-    .card{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:18px;
-    }
-
-    .card h2{
-      margin:0 0 10px 0;
-      font-size:18px;
-      font-weight:800;
-      color:var(--navy);
-    }
-
-    label{ font-weight:700; color:var(--navy); }
-    .field{ margin:12px 0; }
-    input[type="text"], input[type="number"], input[type="file"]{
-      width:100%;
-      padding:12px 12px;
-      border-radius:12px;
-      border:1px solid rgba(22,46,81,0.18);
-      outline:none;
-      font-family:inherit;
-      font-size:14px;
-      background:#fff;
-    }
-    input:focus{
-      border-color: rgba(35,120,195,0.55);
-      box-shadow: 0 0 0 4px rgba(35,120,195,0.12);
-    }
-
-    .btn{
-      width:100%;
-      border:1px solid rgba(26, 68, 128, 0.25);
-      background:var(--blue);
-      color:#fff;
-      padding:12px 14px;
-      border-radius:12px;
-      font-weight:800;
-      cursor:pointer;
-      transition: transform 120ms ease, background 120ms ease;
-    }
-    .btn:hover{ background:var(--blue-dark); }
-    .btn:active{ transform: translateY(1px); }
-    .btn:disabled{ opacity:0.6; cursor:not-allowed; }
-
-    /* Progress bar */
-    .progressWrap{
-      margin-top: 12px;
-      display:none;
-    }
-    .progressLabel{
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 8px;
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-    }
-    .barOuter{
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(22,46,81,0.10);
-      overflow: hidden;
-      border: 1px solid rgba(22,46,81,0.12);
-    }
-    .barInner{
-      height: 100%;
-      width: 0%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, var(--blue), #3aa0ff);
-      transition: width 180ms ease;
-    }
-
-    /* List */
-    .list{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      margin-top: 6px;
-      max-height: 520px;
-      overflow:auto;
-      padding-right: 6px;
-    }
-    .item{
-      background:#fff;
-      border:1px solid rgba(22,46,81,0.12);
-      border-radius: 12px;
-      box-shadow: 0 6px 18px rgba(10, 25, 41, 0.08);
-      padding:12px;
-    }
-    .itemTitle{
-      font-weight:800;
-      margin:0 0 8px 0;
-      color:var(--navy);
-      font-size:14px;
-    }
-    audio{ width:100%; }
-    .error{
-      color:#8b0000;
-      background: rgba(255,0,0,0.06);
-      border:1px solid rgba(255,0,0,0.18);
-      padding:10px 12px;
-      border-radius: 12px;
-      margin-top: 12px;
-      display:none;
-      font-size: 13px;
-      white-space: pre-wrap;
-    }
-    .note{
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height:1.4;
-    }
-    code{
-      background: rgba(22,46,81,0.06);
-      padding: 2px 6px;
-      border-radius: 8px;
-    }
-
-    /* Mobile: stack cards, keep centered */
-    @media (max-width: 860px){
-      main{ align-items:flex-start; }
-      .layout{
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 </head>
 <body>
   <header class="topbar">
     <div class="container">
-      <h1>Admin Upload</h1>
+      <img src="/static/images/logo-image.png">
+      <h1>Daily News Briefing Text to Audio Upload</h1>
       <p>Upload PDF → Generate MP3 → Updates list</p>
     </div>
   </header>
@@ -254,13 +32,8 @@
           </div>
 
           <div class="field">
-            <label>MP3 filename (no .mp3)</label>
-            <input name="mp3_name" type="text" required />
-          </div>
-
-          <div class="field">
-            <label>Max characters to convert (optional)</label>
-            <input name="max_chars" type="number" min="500" step="500" value="4000" />
+            <label>Audio Date</label>
+            <input name="mp3_date" type="date" required />
           </div>
 
           <div class="field">
@@ -319,28 +92,51 @@
     }
 
     async function loadTracks(){
-      const res = await fetch("/tracks.json", { cache: "no-store" });
-      const data = await res.json();
-      const tracks = (data.tracks || []);
+      const url = token
+        ? `/admin/tracks?token=${encodeURIComponent(token)}`
+        : "/admin/tracks";
+
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load tracks");
+
+      const tracks = await res.json();
 
       audioList.innerHTML = tracks.length ? "" : `<div class="note">No audio files yet.</div>`;
 
-      tracks.forEach(t => {
+      tracks.forEach((t, i) => {
         const title = t.title || t.filename;
         const filename = t.filename;
+        const id = t.id;
 
         const div = document.createElement("div");
         div.className = "item";
+        div.dataset.id = id;
+
         div.innerHTML = `
-          <p class="itemTitle">${esc(title)}</p>
-          <audio controls preload="metadata">
+          <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+            <div style="flex:1; min-width:220px;">
+              <label style="font-weight:800; color:var(--navy); font-size:13px;">Title</label>
+              <input data-role="title" type="text" value="${esc(title)}" />
+              <div class="note"><code>${esc(filename)}</code> • <code>${esc(id)}</code></div>
+            </div>
+
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="btnSmall" data-action="up" ${i===0 ? "disabled" : ""}>▲</button>
+              <button class="btnSmall" data-action="down" ${i===tracks.length-1 ? "disabled" : ""}>▼</button>
+              <button class="btnSmall" data-action="save">Save</button>
+              <button class="btnSmall danger" data-action="delete">Delete</button>
+            </div>
+          </div>
+
+          <audio controls preload="metadata" style="margin-top:10px;">
             <source src="${mp3Url(filename)}" type="audio/mpeg">
           </audio>
-          <div class="note"><code>${esc(filename)}</code></div>
         `;
+
         audioList.appendChild(div);
       });
     }
+
 
     // Progress animation: fills to 90% while waiting, then completes
     let progTimer = null;
@@ -383,40 +179,223 @@
       clearInterval(progTimer);
     }
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    const SUGGESTED_MAX = 14000;
 
-      const fd = new FormData(form);
+    form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const fd = new FormData(form);
+
+    try {
+      // 1) Ask server for character count
+      const countUrl = token
+        ? `/admin/charcount?token=${encodeURIComponent(token)}`
+        : "/admin/charcount";
+
+      const countRes = await fetch(countUrl, {
+        method: "POST",
+        body: fd,
+        headers: { "X-Requested-With": "fetch" }
+      });
+
+      if (!countRes.ok) {
+        const txt = await countRes.text();
+        throw new Error(txt || "Character count failed");
+      }
+
+      const countData = await countRes.json();
+      const charCount = countData.char_count || 0;
+
+      // 2) Confirm if over threshold
+      if (charCount > SUGGESTED_MAX) {
+        const ok = confirm(
+          `This document contains ${charCount.toLocaleString()} characters.\n\n` +
+          `Are you sure you want to exceed the suggested maximum of ${SUGGESTED_MAX.toLocaleString()} characters?`
+        );
+        if (!ok) return;
+      }
+
+      // 3) Proceed with actual generation
       startProgress();
 
-      try{
-        const url = token ? `/admin?token=${encodeURIComponent(token)}` : "/admin";
-        const res = await fetch(url, {
-          method: "POST",
-          body: fd,
-          headers: { "X-Requested-With": "fetch" }
-        });
+      const postUrl = token
+        ? `/admin?token=${encodeURIComponent(token)}`
+        : "/admin";
 
-        if (!res.ok){
-          const txt = await res.text();
-          throw new Error(txt || ("Upload failed: " + res.status));
+      const res = await fetch(postUrl, {
+        method: "POST",
+        body: new FormData(form), // recreate FormData
+        headers: { "X-Requested-With": "fetch" }
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || ("Upload failed: " + res.status));
+      }
+
+      finishProgress(true);
+      await loadTracks();
+      form.querySelector('input[type="file"]').value = "";
+
+    } catch (err) {
+      showError(err.message || String(err));
+    }
+  });
+
+
+    // Initial list load
+    loadTracks();
+
+    async function apiFetch(path, options = {}) {
+      const url = token ? `${path}?token=${encodeURIComponent(token)}` : path;
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `${res.status} ${res.statusText}`);
+      }
+      return res;
+    }
+
+    function getCurrentOrder(){
+      return Array.from(document.querySelectorAll("#audioList .item"))
+        .map(el => el.dataset.id);
+    }
+
+    function moveItem(id, dir){
+      const items = Array.from(document.querySelectorAll("#audioList .item"));
+      const idx = items.findIndex(x => x.dataset.id === id);
+      if (idx < 0) return;
+
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= items.length) return;
+
+      const parent = items[idx].parentElement;
+      if (dir === -1) parent.insertBefore(items[idx], items[newIdx]);
+      else parent.insertBefore(items[newIdx], items[idx]);
+    }
+
+    async function persistOrder(){
+      const order = getCurrentOrder();
+      await apiFetch("/admin/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order })
+      });
+    }
+
+    audioList.addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+
+      const item = e.target.closest(".item");
+      const id = item?.dataset.id;
+      if (!id) return;
+
+      const action = btn.dataset.action;
+
+      try {
+        if (action === "save") {
+          const titleInput = item.querySelector('input[data-role="title"]');
+          const newTitle = (titleInput.value || "").trim();
+
+          await apiFetch(`/admin/track/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: newTitle })
+          });
+
+          await loadTracks();
         }
 
-        const data = await res.json();
-        finishProgress(true);
+        if (action === "delete") {
+          const ok = confirm("Delete this track? This will remove it from the list and delete the MP3 file.");
+          if (!ok) return;
 
-        // Reload list from server (manifest)
-        await loadTracks();
+          await apiFetch(`/admin/track/${encodeURIComponent(id)}`, { method: "DELETE" });
+          await loadTracks();
+        }
 
-        // Reset file input + optional fields
-        form.querySelector('input[type="file"]').value = "";
-      } catch(err){
+        if (action === "up") {
+          moveItem(id, -1);
+          await persistOrder();
+          await loadTracks();
+        }
+
+        if (action === "down") {
+          moveItem(id, +1);
+          await persistOrder();
+          await loadTracks();
+        }
+      } catch (err) {
         showError(err.message || String(err));
       }
     });
 
-    // Initial list load
-    loadTracks();
+    // --- Single-active audio on admin list (resume position in-memory) ---
+    const audioPositions = new Map(); // key -> seconds
+    let currentAudio = null;
+
+    function audioKey(audioEl) {
+      // Prefer filename from <source src="/mp3/..."> as the key
+      const srcEl = audioEl.querySelector("source");
+      const src = srcEl ? srcEl.getAttribute("src") : audioEl.currentSrc;
+      return src || audioEl.id || String(Math.random());
+    }
+
+    function rememberPosition(audioEl) {
+      try {
+        audioPositions.set(audioKey(audioEl), audioEl.currentTime || 0);
+      } catch {}
+    }
+
+    function restorePosition(audioEl) {
+      const key = audioKey(audioEl);
+      const t = audioPositions.get(key);
+      if (typeof t === "number" && isFinite(t) && t > 0) {
+        try { audioEl.currentTime = t; } catch {}
+      }
+    }
+
+    // When any audio starts playing, pause the previous one and remember its position.
+    // Use capture so it fires even if play() is triggered via controls.
+    audioList.addEventListener("play", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLAudioElement)) return;
+
+      // Pause other audio if needed
+      if (currentAudio && currentAudio !== target) {
+        rememberPosition(currentAudio);
+        try { currentAudio.pause(); } catch {}
+      }
+
+      // Restore target position (if we have one)
+      restorePosition(target);
+
+      currentAudio = target;
+    }, true);
+
+    // When audio is paused/ended, remember its position
+    audioList.addEventListener("pause", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLAudioElement)) return;
+      rememberPosition(target);
+    }, true);
+
+    audioList.addEventListener("ended", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLAudioElement)) return;
+      rememberPosition(target);
+      if (currentAudio === target) currentAudio = null;
+    }, true);
+
+    // Optional: when the user seeks, update stored time so resuming is accurate
+    audioList.addEventListener("seeking", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLAudioElement)) return;
+      rememberPosition(target);
+    }, true);
+
+
   </script>
 </body>
 </html>

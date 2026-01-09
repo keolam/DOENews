@@ -1,0 +1,23 @@
+{
+  "tracks": [
+    {
+      "id": "f672545cdfc24e7c88ae85de52538f42",
+      "title": "December 15, 2025",
+      "filename": "December 15, 2025.mp3",
+      "created_at": null
+    },
+    {
+      "id": "0b3f39a376dd403fa7306eba9c41b1b5",
+      "title": "December 16, 2025",
+      "filename": "December 16, 2025.mp3",
+      "created_at": null
+    },
+    {
+      "id": "1508e46e7ce24ee2b9f2ec5a88d4547d",
+      "title": "December 18, 2025",
+      "filename": "December 18, 2025.mp3",
+      "created_at": 1767911364,
+      "source_date": "2025-12-18"
+    }
+  ]
+}

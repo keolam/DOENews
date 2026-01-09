@@ -5,9 +5,10 @@ import json
 import time
 import uuid
 import re
-from pathlib import Path
-
 import requests
+
+from datetime import datetime
+from pathlib import Path
 from pypdf import PdfReader
 from flask import (
     Flask, render_template, send_from_directory,
@@ -27,7 +28,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
-ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID_BRIAN", "")
+ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID_WILL", "")
 ELEVENLABS_MODEL_ID = os.environ.get("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2")
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 
@@ -42,27 +43,54 @@ def require_admin():
 
 def load_manifest():
     if MANIFEST_PATH.exists():
-        return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    return {"tracks": []}
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    else:
+        manifest = {"tracks": []}
+
+    changed = False
+    tracks = manifest.get("tracks", [])
+    for t in tracks:
+        if not t.get("id"):
+            t["id"] = uuid.uuid4().hex
+            changed = True
+
+    # Optional: ensure unique ids (rare edge case)
+    seen = set()
+    for t in tracks:
+        if t["id"] in seen:
+            t["id"] = uuid.uuid4().hex
+            changed = True
+        seen.add(t["id"])
+
+    if changed:
+        save_manifest(manifest)
+
+    return manifest
 
 def save_manifest(manifest):
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-def slugify_filename(name: str) -> str:
+def format_us_date(date_str: str) -> str:
     """
-    Turn user input into a safe base filename (no extension).
-    Allows letters, numbers, underscore, dash. Converts spaces to underscores.
+    Converts 'YYYY-MM-DD' -> 'December 18, 2025'
     """
-    name = (name or "").strip()
-    name = name.replace(" ", "_")
-    name = re.sub(r"[^A-Za-z0-9_\-]", "", name)
-    name = re.sub(r"_+", "_", name)
-    name = name.strip("._-")
-    return name
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("Invalid date format. Use YYYY-MM-DD.")
+    # Remove leading zero from day (Windows-friendly)
+    return dt.strftime("%B %d, %Y").replace(" 0", " ")
 
-def mp3_name_exists(base_name: str) -> bool:
-    """Check both the filesystem and manifest for an existing MP3 name."""
-    filename = f"{base_name}.mp3"
+def is_safe_date_filename(name: str) -> bool:
+    """
+    Allow letters, spaces, comma, and digits only (for 'December 18, 2025').
+    """
+    return bool(re.fullmatch(r"[A-Za-z]+ \d{1,2}, \d{4}", name))
+
+def mp3_filename_exists(filename: str) -> bool:
+    """
+    Check both filesystem and manifest for an existing filename.
+    """
     if (AUDIO_DIR / filename).exists():
         return True
     manifest = load_manifest()
@@ -70,6 +98,63 @@ def mp3_name_exists(base_name: str) -> bool:
         if (t.get("filename") or "").lower() == filename.lower():
             return True
     return False
+
+def resolve_date_filename_collision(base_label: str) -> str:
+    """
+    Given 'December 18, 2025', returns a unique filename like:
+      - 'December 18, 2025.mp3'
+      - 'December 18, 2025 (2).mp3'
+      - 'December 18, 2025 (3).mp3'
+    """
+    def exists(filename: str) -> bool:
+        if (AUDIO_DIR / filename).exists():
+            return True
+        manifest = load_manifest()
+        for t in manifest.get("tracks", []):
+            if (t.get("filename") or "").lower() == filename.lower():
+                return True
+        return False
+
+    # First attempt: no suffix
+    filename = f"{base_label}.mp3"
+    if not exists(filename):
+        return filename
+
+    # Subsequent attempts
+    n = 2
+    while True:
+        filename = f"{base_label} ({n}).mp3"
+        if not exists(filename):
+            return filename
+        n += 1
+
+def prepare_narration_text(text: str) -> str:
+    # Normalize whitespace (extra safety)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Add pauses after headings (lines that look like titles)
+    text = re.sub(
+        r"([A-Z][A-Z \-]{6,})",
+        r"\1.\n\n",
+        text
+    )
+
+    # Improve list readability
+    text = re.sub(r"\s-\s", ". ", text)
+    text = re.sub(r"\s•\s", ". ", text)
+
+    # Expand common acronyms (optional, opinionated)
+    text = re.sub(r"\bU\.S\.\b", "United States", text)
+    text = re.sub(r"\bDOE\b", "Department of Energy", text)
+
+    # Insert soft pauses after long sentences
+    text = re.sub(r"([.!?])\s+", r"\1\n", text)
+
+    # Avoid extremely long sentences
+    text = re.sub(r"(.{180,}?)([,;:])\s", r"\1.\n", text)
+
+    return text.strip()
+
 
 def extract_pdf_text(pdf_path: Path) -> str:
     reader = PdfReader(str(pdf_path))
@@ -105,8 +190,9 @@ def elevenlabs_tts_to_file(text: str, out_path: Path):
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}/stream"
     headers = {
         "xi-api-key": ELEVENLABS_API_KEY,
-        "Accept": "application/json",
+        "Accept": "audio/mpeg",
     }
+
     payload = {
         "text": text,
         "model_id": ELEVENLABS_MODEL_ID,
@@ -126,41 +212,6 @@ def elevenlabs_tts_to_file(text: str, out_path: Path):
         for chunk in resp.iter_content(chunk_size=CHUNK_SIZE):
             if chunk:
                 f.write(chunk)
-"""
-@app.route("/")
-def index():
-    # Prefer manifest so we can show nice titles; fall back to directory scan
-    manifest = load_manifest()
-    tracks = manifest.get("tracks", [])
-
-    # If empty manifest, build list from mp3 folder
-    if not tracks:
-        files = sorted([p.name for p in AUDIO_DIR.glob("*.mp3")])
-        tracks = [{"title": f, "filename": f, "created_at": None} for f in files]
-
-    return render_template("index.html", tracks=tracks)
-"""
-"""
-@app.route("/")
-def index():
-    manifest = load_manifest()
-    tracks = manifest.get("tracks", [])
-
-    # Keep only tracks that actually exist
-    tracks = [
-        t for t in tracks
-        if t.get("filename") and (AUDIO_DIR / t["filename"]).exists()
-    ]
-
-    # If none, scan folder
-    if not tracks:
-        files = sorted([p.name for p in AUDIO_DIR.glob("*.mp3")])
-        tracks = [{"title": f, "filename": f, "created_at": None} for f in files]
-
-    return render_template("index.html", tracks=tracks)
-
-
-"""
 
 
 @app.route("/")
@@ -240,75 +291,203 @@ def admin():
     f.stream.seek(0)
     if size > MAX_PDF_BYTES:
         abort(413, "PDF too large for this MVP")
+    
 
-    title = (request.form.get("title") or "").strip() or Path(f.filename).stem
+    # Admin-provided mp3 base name
+    # Admin-provided date -> "December 18, 2025"
+    raw_date = (request.form.get("mp3_date") or "").strip()
+    try:
+        date_label = format_us_date(raw_date)
+    except ValueError as e:
+        abort(400, str(e))
+
+    if not is_safe_date_filename(date_label):
+        abort(400, "Date formatting error. Expected something like 'December 18, 2025'.")
+
+    title = (request.form.get("title") or "").strip() or date_label
+
     safe_pdf_name = secure_filename(f.filename)
     pdf_path = UPLOAD_DIR / f"{uuid.uuid4().hex}_{safe_pdf_name}"
     f.save(pdf_path)
+   
+    out_name = resolve_date_filename_collision(date_label)
 
-    # Admin-provided mp3 base name
-    raw_mp3_name = request.form.get("mp3_name", "")
-    base_mp3_name = slugify_filename(raw_mp3_name)
-
-    if not base_mp3_name:
-        abort(400, "Please provide a valid MP3 filename (letters/numbers/_/- only).")
-
-    if mp3_name_exists(base_mp3_name):
-        abort(409, f"An MP3 named '{base_mp3_name}.mp3' already exists. Choose a different name.")
-
-    text = extract_pdf_text(pdf_path)
-    if not text:
-        abort(400, "Could not extract text from PDF")
-
-    # ---- APPLY USER LIMIT BEFORE CHUNKING ----
-    max_chars_form = request.form.get("max_chars", "").strip()
     try:
-        max_chars_user = int(max_chars_form) if max_chars_form else 4000
-    except ValueError:
-        max_chars_user = 4000
+        text = prepare_narration_text(extract_pdf_text(pdf_path))
 
-    text = text[:max_chars_user]
+        if not text:
+            abort(400, "Could not extract text from PDF")
 
-    # Choose chunk size based on model limits (see docs) :contentReference[oaicite:5]{index=5}
-    # Safe default: 9000 chars if using multilingual v2; if you use Flash/Turbo you can raise this.
-    max_chars = 9000 if "multilingual" in ELEVENLABS_MODEL_ID else 35000
-    chunks = chunk_text(text, max_chars=max_chars)
 
-    # Generate one MP3 per PDF (concatenate chunks by generating multiple mp3s if you want later)
-    # For MVP: generate from first chunk only if you want fast; here we generate all chunks into one file by sequentially appending.
-    out_name = f"{base_mp3_name}.mp3"
-    out_path = AUDIO_DIR / out_name
+        # Choose chunk size based on model limits (see docs) :contentReference[oaicite:5]{index=5}
+        # Safe default: 9000 chars if using multilingual v2; if you use Flash/Turbo you can raise this.
+        max_chars = 9000 if "multilingual" in ELEVENLABS_MODEL_ID else 35000
+        chunks = chunk_text(text, max_chars=max_chars)
 
-    # Write sequentially to same file (append each chunk audio)
-    # NOTE: MP3 concatenation by raw append generally works for many players but isn’t perfect.
-    # For “perfect” concatenation, you’d use ffmpeg (not always available on App Platform).
-    with out_path.open("wb") as out:
-        for i, chunk in enumerate(chunks):
-            tmp_path = AUDIO_DIR / f".tmp_{uuid.uuid4().hex}.mp3"
-            elevenlabs_tts_to_file(chunk, tmp_path)
-            out.write(tmp_path.read_bytes())
-            tmp_path.unlink(missing_ok=True)
+        # Generate one MP3 per PDF (concatenate chunks by generating multiple mp3s if you want later)
+        # For MVP: generate from first chunk only if you want fast; here we generate all chunks into one file by sequentially appending.
+        out_path = AUDIO_DIR / out_name
 
-    # Update manifest
-    manifest = load_manifest()
-    manifest.setdefault("tracks", [])
-    manifest["tracks"].insert(0, {
-        "title": title,
-        "filename": out_name,
-        "created_at": int(time.time())
-    })
-    save_manifest(manifest)
+        # Write sequentially to same file (append each chunk audio)
+        # NOTE: MP3 concatenation by raw append generally works for many players but isn’t perfect.
+        # For “perfect” concatenation, you’d use ffmpeg (not always available on App Platform).
+        with out_path.open("wb") as out:
+            for i, chunk in enumerate(chunks):
+                tmp_path = AUDIO_DIR / f".tmp_{uuid.uuid4().hex}.mp3"
+                elevenlabs_tts_to_file(chunk, tmp_path)
+                out.write(tmp_path.read_bytes())
+                tmp_path.unlink(missing_ok=True)
 
-    # If called via fetch/AJAX, return JSON so the admin page can update live
-    if request.headers.get("X-Requested-With") == "fetch":
-        return jsonify({
-            "ok": True,
-            "created": {"title": title, "filename": out_name},
-            "tracks": load_manifest().get("tracks", [])
+        # Update manifest
+        manifest = load_manifest()
+        manifest.setdefault("tracks", [])
+        track_id = uuid.uuid4().hex
+
+        manifest["tracks"].insert(0, {
+            "id": track_id,                 # <- UUID metadata
+            "title": title,                 # e.g. "December 18, 2025"
+            "filename": out_name,           # e.g. "December 18, 2025.mp3"
+            "created_at": int(time.time()),
+            "source_date": raw_date         # optional: keep original YYYY-MM-DD
         })
 
-    # Fallback: normal form post
-    return redirect(url_for("admin", token=request.args.get("token", "")))
+        save_manifest(manifest)
+
+        # If called via fetch/AJAX, return JSON so the admin page can update live
+        if request.headers.get("X-Requested-With") == "fetch":
+            return jsonify({
+                "ok": True,
+                "created": {"title": title, "filename": out_name},
+                "tracks": load_manifest().get("tracks", [])
+            })
+        
+        # Fallback: normal form post
+        return redirect(url_for("admin", token=request.args.get("token", "")))
+    finally:
+        pdf_path.unlink(missing_ok=True)
+
+
+@app.route("/admin/charcount", methods=["POST"])
+def admin_charcount():
+    require_admin()
+
+    if "pdf" not in request.files:
+        abort(400, "Missing file field 'pdf'")
+
+    f = request.files["pdf"]
+    if not f.filename:
+        abort(400, "No selected file")
+
+    # Optional: same size guard
+    f.stream.seek(0, os.SEEK_END)
+    size = f.stream.tell()
+    f.stream.seek(0)
+    if size > MAX_PDF_BYTES:
+        abort(413, "PDF too large for this MVP")
+
+    safe_pdf_name = secure_filename(f.filename)
+    pdf_path = UPLOAD_DIR / f".charcount_{uuid.uuid4().hex}_{safe_pdf_name}"
+    f.save(pdf_path)
+
+    try:
+        text = prepare_narration_text(extract_pdf_text(pdf_path))
+        if not text:
+            abort(400, "Could not extract text from PDF")
+        return jsonify({"ok": True, "char_count": len(text)})
+    finally:
+        pdf_path.unlink(missing_ok=True)
+
+@app.route("/admin/tracks", methods=["GET"])
+def admin_tracks():
+    require_admin()
+
+    manifest = load_manifest()
+    manifest_tracks = manifest.get("tracks", [])
+    disk_files = sorted([p.name for p in AUDIO_DIR.glob("*.mp3")])
+
+    by_filename = {}
+    for t in manifest_tracks:
+        fn = (t.get("filename") or "").strip()
+        if fn and (AUDIO_DIR / fn).exists():
+            by_filename[fn.lower()] = t
+
+    tracks = list(by_filename.values())
+    for fn in disk_files:
+        if fn.lower() not in by_filename:
+            tracks.append({
+                "id": uuid.uuid4().hex,
+                "title": Path(fn).stem,
+                "filename": fn,
+                "created_at": None
+            })
+
+    return jsonify(tracks)
+
+
+@app.route("/admin/track/<track_id>", methods=["PATCH"])
+def admin_update_track(track_id):
+    require_admin()
+    data = request.get_json(silent=True) or {}
+    new_title = (data.get("title") or "").strip()
+
+    if not new_title:
+        abort(400, "Title cannot be empty")
+
+    manifest = load_manifest()
+    tracks = manifest.get("tracks", [])
+    for t in tracks:
+        if t.get("id") == track_id:
+            t["title"] = new_title
+            save_manifest(manifest)
+            return jsonify({"ok": True, "track": t})
+
+    abort(404, "Track not found")
+
+
+@app.route("/admin/track/<track_id>", methods=["DELETE"])
+def admin_delete_track(track_id):
+    require_admin()
+
+    manifest = load_manifest()
+    tracks = manifest.get("tracks", [])
+
+    idx = next((i for i, t in enumerate(tracks) if t.get("id") == track_id), None)
+    if idx is None:
+        abort(404, "Track not found")
+
+    track = tracks.pop(idx)
+
+    # Delete the mp3 file (ignore if missing)
+    filename = track.get("filename")
+    if filename:
+        try:
+            (AUDIO_DIR / filename).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    save_manifest(manifest)
+    return jsonify({"ok": True})
+
+@app.route("/admin/reorder", methods=["POST"])
+def admin_reorder():
+    require_admin()
+    data = request.get_json(silent=True) or {}
+    order = data.get("order") or []
+
+    if not isinstance(order, list) or not all(isinstance(x, str) for x in order):
+        abort(400, "order must be a list of track ids")
+
+    manifest = load_manifest()
+    tracks = manifest.get("tracks", [])
+
+    by_id = {t.get("id"): t for t in tracks if t.get("id")}
+    if set(order) != set(by_id.keys()):
+        abort(400, "order must include all track ids exactly once")
+
+    manifest["tracks"] = [by_id[tid] for tid in order]
+    save_manifest(manifest)
+    return jsonify({"ok": True})
+
 
 
 @app.route("/health")
@@ -318,4 +497,4 @@ def health():
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", "5000"))
-    app.run(host="127.0.0.1", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True)

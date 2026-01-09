@@ -2,90 +2,263 @@
 <html>
 <head>
   <meta charset="utf-8" />
+  <title>DOE Daily News Podcast</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="container">
+      <img src="/static/images/logo-image.png">
+      <h1>Daily News Podcast</h1>
+      <p>Swipe left/right on mobile (or use arrow keys).</p>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      {% if tracks and tracks|length > 0 %}
+        <script id="trackData" type="application/json">{{ tracks|tojson }}</script>
+
+        <div class="card">
+          <div class="row">
+            <div>
+              <p class="title" id="headerTitle">—</p>
+              <div class="meta" id="headerMeta">—</div>
+            </div>
+
+            <div class="controls">
+              <button id="prevBtn" class="btnSmall" type="button">◀ Prev</button>
+              <button id="nextBtn" class="btnSmall" type="button">Next ▶</button>
+            </div>
+          </div>
+
+          <div class="viewport" id="viewport">
+            <div class="track" id="track"></div>
+          </div>
+
+          <div class="dots" id="dots"></div>
+          <div class="hint">Tip: swipe left/right on mobile (or use arrow keys).</div>
+        </div>
+
+        <script>
+          const tracks = JSON.parse(document.getElementById("trackData").textContent);
+
+          const headerTitle = document.getElementById("headerTitle");
+          const headerMeta  = document.getElementById("headerMeta");
+          const prevBtn     = document.getElementById("prevBtn");
+          const nextBtn     = document.getElementById("nextBtn");
+          const dotsEl      = document.getElementById("dots");
+          const viewport    = document.getElementById("viewport");
+          const trackEl     = document.getElementById("track");
+
+          let index = 0;
+
+          function mp3Url(filename) {
+            return `/mp3/${encodeURIComponent(filename)}`;
+          }
+
+          function buildSlides() {
+            trackEl.innerHTML = "";
+            tracks.forEach((t, i) => {
+              const slide = document.createElement("div");
+              slide.className = "slide";
+              slide.innerHTML = `
+                <p class="slideTitle">${escapeHtml(t.title || t.filename || ("Track " + (i+1)))}</p>
+                <audio controls preload="metadata" data-idx="${i}">
+                  <source src="${mp3Url(t.filename)}" type="audio/mpeg">
+                  Your browser does not support the audio element.
+                </audio>
+              `;
+              trackEl.appendChild(slide);
+            });
+          }
+
+          function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, (c) => ({
+              "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
+            }[c]));
+          }
+
+          function getAllPlayers() {
+            return Array.from(trackEl.querySelectorAll("audio"));
+          }
+
+          function pauseAllExcept(keepIdx) {
+            const players = getAllPlayers();
+            players.forEach((p, i) => {
+              if (i !== keepIdx) {
+                try { p.pause(); } catch {}
+                try { p.currentTime = 0; } catch {}
+              }
+            });
+          }
+
+          function renderDots() {
+            dotsEl.innerHTML = "";
+            tracks.forEach((_, i) => {
+              const d = document.createElement("div");
+              d.className = "dot" + (i === index ? " active" : "");
+              d.addEventListener("click", () => goTo(i, true));
+              dotsEl.appendChild(d);
+            });
+          }
+
+          function updateHeader() {
+            const t = tracks[index];
+            headerTitle.textContent = t.title || t.filename || `Track ${index + 1}`;
+            headerMeta.textContent  = `${index + 1} / ${tracks.length}`;
+          }
+
+          function setTranslateX(px, animate=true) {
+            trackEl.style.transition = animate ? "transform 320ms ease" : "none";
+            trackEl.style.transform = `translateX(${px}px)`;
+          }
+
+          function goTo(i, autoplay=false) {
+            if (!tracks.length) return;
+            if (i < 0) i = tracks.length - 1;
+            if (i >= tracks.length) i = 0;
+
+            index = i;
+
+            const width = viewport.clientWidth;
+            setTranslateX(-index * width, true);
+
+            updateHeader();
+            renderDots();
+
+            pauseAllExcept(index);
+
+            if (autoplay) {
+              const players = getAllPlayers();
+              const p = players[index];
+              if (p) p.play().catch(() => {});
+            }
+          }
+
+          prevBtn.addEventListener("click", () => goTo(index - 1, false));
+          nextBtn.addEventListener("click", () => goTo(index + 1, false));
+
+          document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") goTo(index - 1, false);
+            if (e.key === "ArrowRight") goTo(index + 1, false);
+          });
+
+          window.addEventListener("resize", () => {
+            const width = viewport.clientWidth;
+            setTranslateX(-index * width, false);
+          });
+
+          let startX = 0;
+          let startY = 0;
+          let isDragging = false;
+          let dragDx = 0;
+          let lockedAxis = null;
+
+          function onTouchStart(e) {
+            if (e.touches.length !== 1) return;
+            const t = e.touches[0];
+            startX = t.clientX;
+            startY = t.clientY;
+            isDragging = true;
+            dragDx = 0;
+            lockedAxis = null;
+            trackEl.style.transition = "none";
+          }
+
+          function onTouchMove(e) {
+            if (!isDragging || e.touches.length !== 1) return;
+            const t = e.touches[0];
+            const dx = t.clientX - startX;
+            const dy = t.clientY - startY;
+
+            if (!lockedAxis) lockedAxis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+            if (lockedAxis === "y") {
+              isDragging = false;
+              trackEl.style.transition = "transform 320ms ease";
+              return;
+            }
+
+            e.preventDefault();
+
+            dragDx = dx;
+            const width = viewport.clientWidth;
+            const atStart = index === 0 && dx > 0;
+            const atEnd = index === tracks.length - 1 && dx < 0;
+            const resistance = (atStart || atEnd) ? 0.35 : 1;
+
+            setTranslateX((-index * width) + (dx * resistance), false);
+          }
+
+          function onTouchEnd() {
+            if (!isDragging) return;
+            isDragging = false;
+
+            const width = viewport.clientWidth;
+            const threshold = Math.min(90, width * 0.18);
+
+            trackEl.style.transition = "transform 320ms ease";
+
+            if (dragDx > threshold) {
+              goTo(index - 1, false);
+            } else if (dragDx < -threshold) {
+              goTo(index + 1, false);
+            } else {
+              setTranslateX(-index * width, true);
+            }
+          }
+
+          viewport.addEventListener("touchstart", onTouchStart, { passive: true });
+          viewport.addEventListener("touchmove", onTouchMove, { passive: false });
+          viewport.addEventListener("touchend", onTouchEnd, { passive: true });
+          viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+          buildSlides();
+          updateHeader();
+          renderDots();
+          setTranslateX(0, false);
+        </script>
+      {% else %}
+        <div class="card">
+          <p>No MP3 files found.</p>
+        </div>
+      {% endif %}
+    </div>
+  </main>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
   <title>Audio Carousel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 
-  <style>
-    body { font-family: Arial, sans-serif; margin: 24px; }
-    .wrap { max-width: 820px; margin: 0 auto; }
-    .card {
-      border: 1px solid #ddd;
-      border-radius: 14px;
-      padding: 16px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-      background: #fff;
-    }
-    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-    .title { font-size: 18px; font-weight: 700; margin: 0; }
-    .meta { color: #666; font-size: 13px; margin-top: 6px; }
-
-    .controls { display: flex; gap: 10px; }
-    button {
-      border: 1px solid #ccc;
-      background: #fff;
-      padding: 10px 14px;
-      border-radius: 10px;
-      cursor: pointer;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button:hover:not(:disabled) { background: #f4f4f4; }
-
-    /* Carousel viewport */
-    .viewport {
-      position: relative;
-      overflow: hidden;
-      margin-top: 14px;
-      border-radius: 12px;
-      background: #fafafa;
-      border: 1px solid #eee;
-      touch-action: pan-y; /* allow vertical scroll, we handle horizontal */
-    }
-
-    /* Track strip */
-    .track {
-      display: flex;
-      width: 100%;
-      transform: translateX(0);
-      transition: transform 320ms ease;
-      will-change: transform;
-    }
-
-    /* Each slide */
-    .slide {
-      min-width: 100%;
-      padding: 14px;
-      box-sizing: border-box;
-    }
-
-    .slideTitle {
-      font-weight: 700;
-      margin: 0 0 10px 0;
-      font-size: 16px;
-    }
-
-    audio { width: 100%; }
-
-    .dots { display: flex; gap: 6px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
-    .dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: #d0d0d0; cursor: pointer;
-    }
-    .dot.active { background: #555; }
-
-    .hint { color: #777; font-size: 12px; margin-top: 10px; text-align: center; }
-
-    @media (max-width: 520px) {
-      body { margin: 14px; }
-      .controls { width: 100%; justify-content: space-between; }
-      button { flex: 1; }
-    }
-  </style>
+ 
 </head>
 <body>
   <div class="wrap">
@@ -313,4 +486,4 @@
     {% endif %}
   </div>
 </body>
-</html>
+</html-->
