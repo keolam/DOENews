@@ -1,16 +1,18 @@
 {
   "tracks": [
     {
-      "id": "f672545cdfc24e7c88ae85de52538f42",
-      "title": "December 15, 2025",
-      "filename": "December 15, 2025.mp3",
-      "created_at": null
+      "id": "023a0625576e409995c1d2998d4ba5f5",
+      "title": "December 22, 2025",
+      "filename": "December 22, 2025.mp3",
+      "created_at": 1767927164,
+      "source_date": "2025-12-22"
     },
     {
-      "id": "0b3f39a376dd403fa7306eba9c41b1b5",
-      "title": "December 16, 2025",
-      "filename": "December 16, 2025.mp3",
-      "created_at": null
+      "id": "3f006e7e5bab4355835ffcc02b70c7d1",
+      "title": "December 19, 2025",
+      "filename": "December 19, 2025.mp3",
+      "created_at": 1767925093,
+      "source_date": "2025-12-19"
     },
     {
       "id": "1508e46e7ce24ee2b9f2ec5a88d4547d",
@@ -18,6 +20,19 @@
       "filename": "December 18, 2025.mp3",
       "created_at": 1767911364,
       "source_date": "2025-12-18"
+    },
+    {
+      "id": "577d16e8f21640509bed086a747ce874",
+      "title": "December 16, 2025",
+      "filename": "December 16, 2025.mp3",
+      "created_at": 1767928583,
+      "source_date": "2025-12-16"
+    },
+    {
+      "id": "f672545cdfc24e7c88ae85de52538f42",
+      "title": "December 15, 2025",
+      "filename": "December 15, 2025.mp3",
+      "created_at": null
     }
   ]
 }
